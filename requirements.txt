@@ -1,0 +1,4 @@
+matplotlib==3.6.3
+numpy==2.4.6
+pyserial==3.5
+spatialmath_python==1.1.16
