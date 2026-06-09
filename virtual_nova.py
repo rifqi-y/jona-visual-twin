@@ -1,10 +1,3 @@
-"""Dobot Nova 5 Virtual Twin + STM32 Jog Control.
-
-Fitur Utama:
-- Forward Kinematics (SpatialMath)
-- Velocity Control Streaming (Anti-Jitter)
-- Real-time Serial Feedback
-"""
 import math
 import threading
 import time
@@ -30,6 +23,9 @@ try:
 except serial.SerialException:
     print(f"Peringatan: Tidak dapat terhubung ke {cfg.COM_PORT}. Mode SIMULASI OFFLINE.")
 
+# Lock ditambahkan untuk mencegah tabrakan antara UI Thread dan Background Thread
+serial_lock = threading.Lock()
+
 def _read_serial_loop():
     """Berjalan di background untuk mencetak balasan dari STM32."""
     while stm_serial and stm_serial.is_open:
@@ -45,8 +41,14 @@ if stm_serial:
     threading.Thread(target=_read_serial_loop, daemon=True).start()
 
 def _send(payload: bytes):
-    if stm_serial is not None:
-        stm_serial.write(payload)
+    """Mengirim data ke serial dengan aman (Thread-Safe)."""
+    if stm_serial is not None and stm_serial.is_open:
+        # Gunakan lock agar Thread UI dan Thread Background tidak saling timpa
+        with serial_lock: 
+            try:
+                stm_serial.write(payload)
+            except serial.SerialTimeoutException:
+                print("[Python] Warning: Serial write timeout (diabaikan, antrean dilewati)")
 
 # ==========================================
 # 2. PROTOKOL PERINTAH STM32
@@ -55,7 +57,13 @@ def send_step(idx, delta_deg):
     """Kirim step diskrit untuk input nilai manual (bukan jog)."""
     if delta_deg == 0:
         return
+        
     steps = int(round((delta_deg / 360.0) * cfg.PULSE_PER_REV[idx] * cfg.GEAR_RATIO[idx]))
+    
+    # Pencegahan pengiriman beban kosong akibat focus loss di UI TextBox
+    if steps == 0: 
+        return
+        
     _send(f"M:{idx}:{steps}\n".encode('utf-8'))
 
 def send_jog_char(idx, sign):
@@ -74,10 +82,9 @@ def send_home():
 def send_set_speed():
     """Setel kecepatan per motor dari konfigurasi statis saat boot."""
     for idx in range(N_JOINTS):
-        # Mengambil dari config JOG_HALFPERIOD_US_ARRAY. Fallback ke 250 jika tidak ada.
         halfperiod_us = getattr(cfg, 'JOG_HALFPERIOD_US_ARRAY', [250]*6)[idx]
         _send(f"V:{idx}:{halfperiod_us}\n".encode('utf-8'))
-        time.sleep(0.05) # Jeda aman agar STM32 tidak kewalahan
+        time.sleep(0.05) # Jeda aman saat inisialisasi awal
 
 def jog_speed_deg_per_sec(idx):
     """Hitung kecepatan rotasi visual teoretis untuk UI Matplotlib."""
@@ -88,7 +95,6 @@ def jog_speed_deg_per_sec(idx):
 # ==========================================
 # 3. KINEMATIKA (FORWARD KINEMATICS)
 # ==========================================
-# Dihitung sekali saat boot untuk efisiensi
 _joint_offsets = [sm.SE3(*j.xyz) * sm.SE3.RPY(*j.rpy) for j in cfg.URDF_JOINTS]
 
 def forward_kinematics(q_rad):
@@ -151,7 +157,7 @@ def _make_submit(idx):
         try:    
             set_joint(idx, float(text))
         except ValueError: 
-            _apply_q(idx, q_deg[idx]) # Batalkan jika input invalid
+            _apply_q(idx, q_deg[idx]) 
     return _submit
 
 # --- Render Tombol & Textbox ---
@@ -217,11 +223,9 @@ def _on_gui_tick():
     global _visual_skip
     if _jog_active_idx is None: return
 
-    # 1. Kalkulasi kemajuan sudut teoretis
     delta_deg = _jog_active_sign * jog_speed_deg_per_sec(_jog_active_idx) * (getattr(cfg, 'JOG_STREAM_MS', 40) / 1000.0)
     _apply_q(_jog_active_idx, q_deg[_jog_active_idx] + delta_deg)
     
-    # 2. Throttled redraw untuk hemat CPU
     _visual_skip += 1
     if _visual_skip >= getattr(cfg, 'JOG_REDRAW_EVERY_N', 2):
         _visual_skip = 0
@@ -255,8 +259,8 @@ def _on_release(*_):
         _hold_timer.stop()
         
     if was_streaming:
-        send_stop_all() # Kirim SPASI ke STM32
-        redraw()        # Render paksa posisi terakhir
+        send_stop_all() 
+        redraw()        
 
 fig.canvas.mpl_connect('button_press_event', _on_press)
 fig.canvas.mpl_connect('button_release_event', _on_release)
@@ -268,6 +272,5 @@ send_set_speed()
 redraw()
 plt.show()
 
-# Bersihkan resources ketika aplikasi ditutup
 if stm_serial:
     stm_serial.close()

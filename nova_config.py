@@ -28,7 +28,8 @@ URDF_JOINTS = [
 ]
 
 # ---------- Spesifikasi stepper per sendi ----------
-PULSE_PER_REV = [2000, 2000, 2000, 1600, 1600, 1600]
+# UPDATE: M0, M1, dan M2 diset ke 800 PPR sesuai dengan P001 = 4 di driver fisik.
+PULSE_PER_REV = [800, 800, 800, 1600, 1600, 1600] 
 GEAR_RATIO    = [ 100,   50,   40,   30,   15,   10]
 
 # ---------- Batas ruang plot 3D (mm) ----------
@@ -42,13 +43,13 @@ WORKSPACE = {
 STEP_SIZE_DEG         = 1.0   # besar 1x klik tombol +/- (derajat)
 JOG_HALFPERIOD_US = 250
 JOG_HALFPERIOD_US_ARRAY = [
-    40,
-    120,
-    100,
-    180,
-    200,
-    200,
-    ]   # kecepatan jog firmware: us / setengah pulsa (kecil = cepat)
+    80,   # M0: 80us
+    80,   # M1: 80us
+    80,   # M2: 80us
+    120,  # M3: 120us
+    150,  # M4: 150us
+    150,  # M5: 150us
+]
 JOG_HOLD_THRESHOLD_MS = 350   # tahan >= ini ms dianggap "hold" → mulai stream jog
 JOG_STREAM_MS         = 40    # interval kirim karakter jog ke STM32 saat hold
 JOG_REDRAW_EVERY_N    = 2     # redraw visual tiap N tick (hemat CPU, serial tetap di JOG_STREAM_MS)
