@@ -40,7 +40,15 @@ WORKSPACE = {
 
 # ---------- UI jog (klik = step, tahan = jog kontinu ala Dobot Studio) ----------
 STEP_SIZE_DEG         = 1.0   # besar 1x klik tombol +/- (derajat)
-JOG_HALFPERIOD_US     = 250   # kecepatan jog firmware: us / setengah pulsa (kecil = cepat)
+JOG_HALFPERIOD_US = 250
+JOG_HALFPERIOD_US_ARRAY = [
+    40,
+    120,
+    100,
+    180,
+    200,
+    200,
+    ]   # kecepatan jog firmware: us / setengah pulsa (kecil = cepat)
 JOG_HOLD_THRESHOLD_MS = 350   # tahan >= ini ms dianggap "hold" → mulai stream jog
 JOG_STREAM_MS         = 40    # interval kirim karakter jog ke STM32 saat hold
 JOG_REDRAW_EVERY_N    = 2     # redraw visual tiap N tick (hemat CPU, serial tetap di JOG_STREAM_MS)
