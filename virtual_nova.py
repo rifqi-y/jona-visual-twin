@@ -82,14 +82,12 @@ def send_home():
 def send_set_speed():
     """Setel kecepatan per motor dari konfigurasi statis saat boot."""
     for idx in range(N_JOINTS):
-        halfperiod_us = getattr(cfg, 'JOG_HALFPERIOD_US_ARRAY', [250]*6)[idx]
-        _send(f"V:{idx}:{halfperiod_us}\n".encode('utf-8'))
+        _send(f"V:{idx}:{cfg.JOG_HALFPERIOD_US_ARRAY[idx]}\n".encode('utf-8'))
         time.sleep(0.05) # Jeda aman saat inisialisasi awal
 
 def jog_speed_deg_per_sec(idx):
     """Hitung kecepatan rotasi visual teoretis untuk UI Matplotlib."""
-    halfperiod_us = getattr(cfg, 'JOG_HALFPERIOD_US_ARRAY', [250]*6)[idx]
-    motor_steps_per_sec = 1e6 / (2 * halfperiod_us)
+    motor_steps_per_sec = 1e6 / (2 * cfg.JOG_HALFPERIOD_US_ARRAY[idx])
     return motor_steps_per_sec / (cfg.PULSE_PER_REV[idx] * cfg.GEAR_RATIO[idx]) * 360.0
 
 # ==========================================
@@ -162,7 +160,6 @@ def _make_submit(idx):
 
 # --- Render Tombol & Textbox ---
 ROW_H, TOP_Y = 0.045, 0.36
-_jog_buttons = []
 _button_action = {}
 
 def _text_panel(rect, text, ha='center', **kwargs):
@@ -183,7 +180,6 @@ for i, joint in enumerate(cfg.URDF_JOINTS):
     _text_panel((0.42, y, 0.14, 0.035), f'[{lo}°, {hi}°]', ha='left', fontsize=9, color='gray')
     
     value_boxes.append(tb)
-    _jog_buttons.extend([minus_btn, plus_btn])
     _button_action[minus_btn.ax] = (i, -1)
     _button_action[plus_btn.ax]  = (i, +1)
 
